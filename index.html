@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>果子登记</title>
+<style>
+:root{
+--bg:#F5F7F2;--card:#fff;--line:#E5EAE0;--ink:#20302A;--muted:#718077;
+--brand:#E2703A;--ok:#2E9E6B;--ok-bg:#E8F6EE;--warn:#B4692C;--warn-bg:#FDF1E7;--gray-bg:#F0F2EE;
+/* 常用配色：改 # 后面的 6 位色值即可，改完重新发布 */
+--c-pick-done:#2E9E6B;   /* 已摸满 大块 */
+--c-plant-btn:#185FA5;   /* 种果了 按钮 */
+--c-plant-done:#6B46C1;  /* 已种果 大块 */
+--c-done-bg:#EAF7F0;--c-done-bd:#8FD3AE;  /* 全部完成 底色/边框 */
+--c-todo-bg:#FDF0F0;--c-todo-bd:#EDA9A9;  /* 两项待办 底色/边框 */
+--c-none-bg:#FFFAF4;--c-none-bd:#EFD6B8   /* 没摸到 底色/边框 */
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;-webkit-tap-highlight-color:transparent}
+.wrap{max-width:720px;margin:0 auto;padding:22px 16px 56px}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:16px}
+h1{font-size:20px;font-weight:600;margin:0}
+h2{font-size:15px;font-weight:600;margin:0 0 12px}
+.sub{font-size:13px;color:var(--muted);margin-top:5px;line-height:1.5}
+.hint{font-size:12px;color:var(--muted);line-height:1.6}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:14px}
+.center{text-align:center}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.between{justify-content:space-between}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+input[type=date],input[type=text],textarea{width:100%;border:1px solid var(--line);background:#FBFCFA;border-radius:10px;padding:11px 12px;font-size:14px;color:var(--ink);font-family:inherit;outline:none}
+input[type=date]{width:auto;min-width:150px}
+input[type=text]{flex:1;min-width:120px}
+textarea{resize:vertical;line-height:1.6;margin-top:10px}
+input:focus,textarea:focus{border-color:var(--brand)}
+.btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:10px 16px;font-size:14px;font-family:inherit;cursor:pointer;white-space:nowrap}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.btn.go{background:var(--brand);border-color:var(--brand);color:#fff;padding:10px 22px}
+.btn.plant{background:var(--c-plant-btn);border-color:var(--c-plant-btn);color:#fff;padding:10px 16px}
+.btn[disabled]{opacity:.55}
+.stats{display:flex;gap:10px;margin:16px 0 12px}
+.stat{flex:1;background:var(--gray-bg);border-radius:12px;padding:12px 10px;text-align:center}
+.stat b{display:block;font-size:24px;line-height:1.2;font-weight:600}
+.stat span{font-size:12px;color:var(--muted)}
+.stat.ok b{color:var(--ok)}
+.stat.warn b{color:var(--warn)}
+.bar{height:8px;background:var(--gray-bg);border-radius:99px;overflow:hidden}
+.bar div{height:100%;background:var(--ok);width:0;transition:width .3s}
+.plantstat{font-size:12px;color:var(--ok);margin-top:10px}
+.pending{margin-top:14px;background:#FBFCFA;border:1px dashed var(--line);border-radius:10px;padding:12px;font-size:13px;line-height:1.7;word-break:break-all}
+.share{background:#FBFCFA;border:1px solid var(--line);border-radius:10px;padding:11px;font-size:12px;word-break:break-all;line-height:1.6;color:var(--muted);margin-bottom:10px}
+.search{width:100%;border:1px solid var(--line);background:#FBFCFA;border-radius:10px;padding:12px;font-size:15px;color:var(--ink);font-family:inherit;outline:none;margin-bottom:10px}
+.search:focus{border-color:var(--brand)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:11px}
+.mitem,.arow{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;min-height:118px}
+.mitem.mine{box-shadow:inset 3px 0 0 var(--brand)}
+.mitem.c-all-done{background:var(--c-done-bg);border-color:var(--c-done-bd)}
+.mitem.c-all-todo{background:var(--c-todo-bg);border-color:var(--c-todo-bd)}
+.mitem.c-none{background:var(--c-none-bg);border-color:var(--c-none-bd)}
+.arow{min-height:108px}
+.arow.c-all-done{background:var(--c-done-bg);border-color:var(--c-done-bd)}
+.arow.c-all-todo{background:var(--c-todo-bg);border-color:var(--c-todo-bd)}
+.arow.c-none{background:var(--c-none-bg);border-color:var(--c-none-bd)}
+.arow.sel{border-color:var(--brand);background:#FFFCF9}
+.mrow{display:flex;justify-content:space-between;align-items:flex-start;gap:6px;min-height:20px;flex-wrap:wrap}
+.mname{font-size:15px;font-weight:600;word-break:break-all;line-height:1.35;margin-top:8px;flex:1}
+.mactions{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.mactions .btn.go,.mactions .btn.plant{flex:1;min-width:62px;padding:9px 6px;font-size:13px;text-align:center}
+.mactions .mini{flex:1;min-width:54px;padding:8px 6px;font-size:12px;text-align:center}
+.mini{border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 12px;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit}
+.psec{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:9px;padding-top:8px;border-top:1px dashed var(--line);flex-wrap:wrap}
+.plabel{font-size:11px;color:var(--muted)}
+.badge{display:inline-block;font-size:10px;font-weight:400;padding:3px 6px;border-radius:99px;white-space:nowrap}
+.badge.ok{background:var(--ok-bg);color:var(--ok)}
+.badge.warn{background:var(--warn-bg);color:var(--warn)}
+.badge.gray{background:var(--gray-bg);color:var(--muted)}
+.badge.todo{background:#FCEBEB;color:#A32D2D}
+.doneflag{width:100%;background:var(--c-pick-done);color:#fff;border-radius:10px;padding:12px 8px;font-size:16px;font-weight:600;text-align:center}
+.plantdone{width:100%;background:var(--c-plant-done);color:#fff;border-radius:10px;padding:12px 8px;font-size:16px;font-weight:600;text-align:center}
+.mini.tiny{padding:3px 8px;font-size:11px}
+.mfoot{margin-top:auto;padding-top:9px;display:flex;justify-content:flex-end}
+.pickme{border:0;background:transparent;padding:2px 0;font-size:11px;color:var(--muted);cursor:pointer;font-family:inherit;line-height:1.3;white-space:nowrap;text-decoration:underline;text-underline-offset:2px}
+.pickme:active{color:var(--brand)}
+.pickme.meclear{color:var(--brand);background:var(--warn-bg);border:1px solid #EFD6B8;border-radius:6px;padding:2px 7px;text-decoration:none}
+.shothead{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px}
+.shothead .shotlabel{font-size:13px;color:var(--muted)}
+.shotclose{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 12px;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit}
+.shotclose:active{background:#F0F2EE}
+.shotimg{width:100%;border-radius:12px;border:1px solid var(--line);display:block;margin-top:10px}
+.codeitem{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line);padding:10px 0;flex-wrap:wrap}
+.codeitem:first-child{border-top:0;padding-top:2px}
+.codetext{flex:1;min-width:130px;font-size:14px;font-family:ui-monospace,Consolas,monospace;word-break:break-all}
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0}
+.chk{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.chk input{width:15px;height:15px;accent-color:var(--brand);margin:0}
+.note{font-size:12px;color:var(--muted);line-height:1.8;padding:4px}
+.toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(12px);background:#20302A;color:#fff;padding:10px 18px;border-radius:99px;font-size:13px;opacity:0;pointer-events:none;transition:.2s;z-index:9;max-width:88vw;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.erricon{width:44px;height:44px;border-radius:50%;background:var(--gray-bg);color:var(--muted);font-size:22px;line-height:44px;margin:0 auto 12px}
+</style>
+</head>
+<body>
+<div id="app" class="wrap"></div>
+<script>window.APP_CONFIG = {
+  backend: 'supabase',              // 'workbuddy' 用自家云服务；'supabase' 用 Supabase 免费后端
+  supabaseUrl: 'https://cfzjruwccstqvrwhszse.supabase.co',
+  supabaseKey: 'sb_publishable_OXrxM7iPK9SRBhZ59Vlcwg_Nq6lArlk',
+  endpoint:'https://fruit-checkin-24663.app.workbuddy.host',
+  oauthRelayBaseUrl:'https://www.workbuddy.cn/v2/as/genie-baas/oauth',
+  publishableKey:'wbpk_FhVhWR0wyX8IHi5ekShOMe_3liyZXB3V2g5Nj5x767hHOP5FLW344Lg',
+  adminKey:'mg-a7f3kq9z2'
+};</script>
+<script>
+(function(){
+  var CFG = window.APP_CONFIG || {};
+  var app = document.getElementById('app');
+  var db = null;
+  var isAdmin = false;
+  var state = { members: [], rows: [], plants: [], codes: [], day: '' };
+  var selected = {};
+  var KEEP_DAYS = 30;          // 保留最近几天（含今天）的摸果/种果记录，更早的会被自动删除；改成 3 就保留今天和前 2 天
+  var CLEAN_KEY = 'moguo_cleanup_on';
+
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function today(){ return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10); }
+  function dayStr(offset){
+    var d = new Date(Date.now() + 8 * 3600 * 1000 - (offset || 0) * 86400000);
+    return d.toISOString().slice(0, 10);
+  }
+  function keepFrom(){ return dayStr(KEEP_DAYS - 1); }   // 这一天及之后的记录保留
+  function lastClean(){
+    try { return localStorage.getItem(CLEAN_KEY) || ''; } catch(e){ return ''; }
+  }
+  async function cleanupOld(){
+    var cut = keepFrom();
+    var c1 = await q(db.from('checkins').delete().lt('day', cut).select());
+    var c2 = await q(db.from('plantings').delete().lt('day', cut).select());
+    var r = { cut: cut, checkins: (c1 || []).length, plantings: (c2 || []).length };
+    try { localStorage.setItem(CLEAN_KEY, today()); } catch(e){}
+    return r;
+  }
+  async function autoCleanup(){
+    try {
+      if(lastClean() === today()) return;   // 今天已经清过
+      await cleanupOld();
+    } catch(e){}
+  }
+  function prettyDay(d){ var p = String(d).split('-'); return (p[1]||'').replace(/^0/,'') + '月' + (p[2]||'').replace(/^0/,'') + '日'; }
+  function timeStr(iso){
+    if(!iso) return '';
+    var d = new Date(new Date(iso).getTime() + 8 * 3600 * 1000);
+    return String(d.getUTCHours()).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0');
+  }
+  function newToken(){
+    var s = '';
+    if(window.crypto && crypto.getRandomValues){
+      var a = new Uint8Array(10);
+      crypto.getRandomValues(a);
+      s = Array.prototype.map.call(a, function(b){ return ('0' + b.toString(36)).slice(-2); }).join('');
+    } else { s = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2); }
+    return s.slice(0, 16);
+  }
+  function getMy(){ try { return localStorage.getItem('moguo_my_id') || ''; } catch(e){ return ''; } }
+  function setMy(v){ try { localStorage.setItem('moguo_my_id', v); } catch(e){} }
+  function clearMy(){ try { localStorage.removeItem('moguo_my_id'); } catch(e){} }
+  function isMine(m){ var my = getMy(); return !!my && !!m && String(m.id) === my; }
+  function shareUrl(){
+    var u = new URL(window.location.href);
+    u.hash = '';
+    ['u','admin','id','name'].forEach(function(k){ u.searchParams.delete(k); });
+    return u.toString();
+  }
+  function copyFallback(x){
+    var ta = document.createElement('textarea');
+    ta.value = x;
+    ta.style.cssText = 'position:fixed;opacity:0;left:-9999px';
+    document.body.appendChild(ta); ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch(e){}
+    document.body.removeChild(ta);
+    return ok;
+  }
+  function copy(t){
+    return new Promise(function(res){
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(t).then(function(){ res(true); }, function(){ res(copyFallback(t)); });
+      } else { res(copyFallback(t)); }
+    });
+  }
+  function toast(msg){
+    var el = document.getElementById('toast');
+    if(!el){ el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(el._t);
+    el._t = setTimeout(function(){ el.classList.remove('show'); }, 1900);
+  }
+  function errCard(msg){
+    return '<div class="card center"><div class="erricon">!</div><h1 style="font-size:17px">' + esc(msg) + '</h1><p class="hint">下拉刷新重试；仍不行请联系管理员。</p></div>';
+  }
+  async function q(p){
+    var r = await p;
+    if(r && r.error) throw new Error(r.error.message || '请求失败，请重试');
+    return r ? r.data : null;
+  }
+
+  function loadScript(src, ok, bad){
+    var s = document.createElement('script');
+    s.src = src; s.onload = ok; s.onerror = bad;
+    document.head.appendChild(s);
+  }
+  function start(){
+    if(CFG.backend === 'supabase'){
+      if(!window.SupabaseDB || !CFG.supabaseUrl || !CFG.supabaseKey){
+        app.innerHTML = errCard('数据库配置缺失，请检查 supabaseUrl / supabaseKey'); return;
+      }
+      db = SupabaseDB.create(CFG.supabaseUrl, CFG.supabaseKey).database;
+      return route();
+    }
+    if(!window.WorkBuddyCloud || !CFG.endpoint || !CFG.publishableKey){
+      app.innerHTML = errCard('登记组件加载失败，请刷新重试'); return;
+    }
+    db = WorkBuddyCloud.createWorkBuddyCloud({
+      endpoint: CFG.endpoint,
+      oauthRelayBaseUrl: CFG.oauthRelayBaseUrl,
+      publishableKey: CFG.publishableKey
+    }).database;
+    route();
+  }
+  function init(){
+    if(CFG.backend === 'supabase'){
+      return loadScript('./supabase-db.js', start, function(){
+        app.innerHTML = errCard('数据组件加载失败，请刷新重试');
+      });
+    }
+    if(window.WorkBuddyCloud) return start();
+    var sc = new URLSearchParams(location.search).get('sharecode');
+    var local = './cloud-sdk.js' + (sc ? '?sharecode=' + encodeURIComponent(sc) : '');
+    var cdn1 = 'https://cdn.jsdelivr.net/npm/@tencent-ai/workbuddy-cloud-sdk@dev/lib/index.global.js';
+    var cdn2 = 'https://unpkg.com/@tencent-ai/workbuddy-cloud-sdk@dev/lib/index.global.js';
+    loadScript(local, start, function(){
+      loadScript(cdn1, start, function(){
+        loadScript(cdn2, start, function(){ app.innerHTML = errCard('登记组件加载失败，请检查网络后刷新重试'); });
+      });
+    });
+  }
+  function route(){
+    var p = new URLSearchParams(location.search);
+    isAdmin = !!(CFG.adminKey && p.get('admin') === CFG.adminKey);
+    state.day = today();
+    if(isAdmin) adminView(); else memberView();
+    autoCleanup();
+  }
+
+  async function loadData(day){
+    var res = await Promise.all([
+      q(db.from('members').select('*').order('id', { ascending: true })),
+      q(db.from('checkins').select('*').eq('day', day)),
+      q(db.from('plantings').select('*').eq('day', day)),
+      q(db.from('codes').select('*').order('id', { ascending: false }))
+    ]);
+    state.members = res[0] || [];
+    state.rows = res[1] || [];
+    state.plants = res[2] || [];
+    state.codes = res[3] || [];
+    state.day = day;
+  }
+  function compute(){
+    var map = {}, plantMap = {};
+    state.rows.forEach(function(r){ map[r.member_id] = r; });
+    state.plants.forEach(function(r){ plantMap[r.member_id] = r; });
+    var full = 0, none = 0, pending = [], plantNeed = 0, plantDone = 0;
+    state.members.forEach(function(m){
+      var r = map[m.id];
+      if(r && r.status === 'full') full++;
+      else { none++; pending.push(m); }
+      if(m.need_plant){
+        plantNeed++;
+        var p = plantMap[m.id];
+        if(p && p.status === 'done') plantDone++;
+      }
+    });
+    return { map: map, plantMap: plantMap, full: full, none: none, pending: pending,
+             total: state.members.length, plantNeed: plantNeed, plantDone: plantDone };
+  }
+  function comboState(m, c){
+    var r = c.map[m.id], p = c.plantMap[m.id];
+    var pickDone = !!(r && r.status === 'full');
+    var plantDone = !m.need_plant || !!(p && p.status === 'done');
+    var allDone = pickDone && plantDone;
+    var allTodo = !pickDone && !plantDone;
+    var cls = allDone ? ' c-all-done' : allTodo ? ' c-all-todo' : (!pickDone ? ' c-none' : '');
+    return { cls: cls, allDone: allDone, allTodo: allTodo };
+  }
+  // 排序键：先按摸果（没摸到 → 已摸满），再按种果（未种 → 没有种果项 → 已种）
+  // 保证「长得一样」的卡片一定连在一起
+  function comboRank(m, c){
+    var r = c.map[m.id], p = c.plantMap[m.id];
+    var picked = !!(r && r.status === 'full');
+    var plantState = !m.need_plant ? 1 : ((p && p.status === 'done') ? 2 : 0);
+    return (picked ? 3 : 0) + plantState;
+  }
+  function sortMembers(arr, c, myId){
+    return arr.slice().sort(function(a, b){
+      if(myId){
+        if(String(a.id) === myId) return -1;
+        if(String(b.id) === myId) return 1;
+      }
+      var ra = comboRank(a, c), rb = comboRank(b, c);
+      if(ra !== rb) return ra - rb;
+      return a.id - b.id;
+    });
+  }
+  async function setStatus(m, day, status){
+    var exist = await q(db.from('checkins').select('*').eq('member_id', m.id).eq('day', day).maybeSingle());
+    if(exist){
+      var up = await q(db.from('checkins').update({
+        status: status, member_name: m.name, updated_at: new Date().toISOString()
+      }).eq('id', exist.id).select());
+      if(!up || !up.length) throw new Error('登记未生效，请再点一次');
+    } else {
+      var ins = await q(db.from('checkins').insert({
+        member_id: m.id, member_name: m.name, day: day, status: status
+      }).select());
+      if(!ins || !ins.length) throw new Error('登记未生效，请再点一次');
+    }
+  }
+  async function setPlant(m, day, status){
+    var exist = await q(db.from('plantings').select('*').eq('member_id', m.id).eq('day', day).maybeSingle());
+    if(exist){
+      var up = await q(db.from('plantings').update({
+        status: status, updated_at: new Date().toISOString()
+      }).eq('id', exist.id).select());
+      if(!up || !up.length) throw new Error('种果登记未生效，请再点一次');
+    } else {
+      var ins = await q(db.from('plantings').insert({
+        member_id: m.id, day: day, status: status
+      }).select());
+      if(!ins || !ins.length) throw new Error('种果登记未生效，请再点一次');
+    }
+  }
+  async function refresh(){
+    try { await loadData(state.day); }
+    catch(e){ toast('读取失败：' + e.message); return; }
+    updateStats();
+    if(isAdmin) renderAdminList(); else renderMemberList();
+    renderCodes();
+  }
+  function updateStats(){
+    var c = compute();
+    var pct = c.total ? Math.round(c.full * 100 / c.total) : 0;
+    var st = document.getElementById('stats');
+    if(st) st.innerHTML = '<div class="stat ok"><b>' + c.full + '</b><span>已摸满</span></div>' +
+      '<div class="stat warn"><b>' + c.none + '</b><span>没摸到</span></div>';
+    var bar = document.getElementById('barFill');
+    if(bar) bar.style.width = pct + '%';
+    var ps = document.getElementById('plantStat');
+    if(ps){
+      var parts = [];
+      if(c.plantNeed) parts.push('种果 ' + c.plantDone + '/' + c.plantNeed);
+      parts.push('完成 ' + state.members.filter(function(m){ return comboState(m, c).allDone; }).length + '/' + c.total);
+      ps.textContent = parts.join(' · ');
+    }
+    var box = document.getElementById('pendingBox');
+    if(box){
+      var text = '【' + prettyDay(state.day) + ' 摸果子】没摸到（' + c.pending.length + '人）：' +
+        (c.pending.length ? c.pending.map(function(m){ return m.name; }).join('、') : '无，全部摸满');
+      box.innerHTML = '<div>' + esc(text) + '</div><div style="margin-top:10px"><button class="mini" id="btnCopyPending">复制名单发群里</button>' +
+        '<span class="hint" style="margin-left:8px">共 ' + c.total + ' 人 · 完成 ' + pct + '%</span></div>';
+      document.getElementById('btnCopyPending').onclick = async function(){
+        toast(await copy(text) ? '已复制，去群里粘贴' : '复制失败，请长按文字手动复制');
+      };
+    }
+    var cnt = document.getElementById('countHint');
+    if(cnt) cnt.textContent = '共 ' + c.total + ' 人';
+  }
+
+  function renderCodes(){
+    var box = document.getElementById('codeList');
+    if(!box) return;
+    var html = '';
+    state.codes.forEach(function(c){
+      html += '<div class="codeitem"><span class="codetext">' + esc(c.content) + '</span>' +
+        '<button class="mini" data-codecopy="' + esc(c.content) + '">复制</button>' +
+        (isAdmin ? '<button class="mini" data-codedel="' + c.id + '">删除</button>' : '') + '</div>';
+    });
+    box.innerHTML = html || '<div class="hint">还没有兑换码</div>';
+  }
+  async function codeAction(ev){
+    var btn = ev.target.closest('button');
+    if(!btn) return;
+    var ds = btn.dataset;
+    try {
+      if(ds.codecopy){
+        toast(await copy(ds.codecopy) ? '已复制兑换码' : '复制失败，请长按文字手动复制');
+        return;
+      }
+      if(ds.codedel){
+        if(!window.confirm('删除这个兑换码？')) return;
+        var d = await q(db.from('codes').delete().eq('id', Number(ds.codedel)).select());
+        if(!d || !d.length) throw new Error('删除未生效');
+        toast('已删除');
+        refresh();
+      }
+    } catch(e){ toast(e.message || '操作失败'); }
+  }
+  async function addCodes(){
+    var box = document.getElementById('newCode');
+    if(!box) return;
+    var lines = box.value.split(/[\n,，;；\t]+/).map(function(s){ return s.trim(); }).filter(Boolean);
+    if(!lines.length){ toast('先输入兑换码'); return; }
+    var btn = document.getElementById('btnAddCode');
+    btn.disabled = true;
+    try {
+      var ins = await q(db.from('codes').insert(lines.map(function(t){ return { content: t }; })).select());
+      if(!ins || !ins.length) throw new Error('添加未生效');
+      box.value = '';
+      toast('已添加 ' + lines.length + ' 个兑换码');
+      refresh();
+    } catch(e){ toast(e.message || '添加失败'); }
+    finally { btn.disabled = false; }
+  }
+  function cssVar(n, fb){
+    try {
+      var v = getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+      return v || fb;
+    } catch(e){ return fb; }
+  }
+  function roundRect(ctx, x, y, w, h, r){
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+  function fitText(ctx, text, maxW){
+    var t = String(text);
+    if(ctx.measureText(t).width <= maxW) return t;
+    while(t.length > 1 && ctx.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+    return t + '…';
+  }
+  function buildShot(){
+    var c = compute();
+    var CP = {
+      pick: cssVar('--c-pick-done', '#2E9E6B'),
+      plantDone: cssVar('--c-plant-done', '#6B46C1'),
+      doneBg: cssVar('--c-done-bg', '#EAF7F0'), doneBd: cssVar('--c-done-bd', '#8FD3AE'),
+      todoBg: cssVar('--c-todo-bg', '#FDF0F0'), todoBd: cssVar('--c-todo-bd', '#EDA9A9'),
+      noneBg: cssVar('--c-none-bg', '#FFFAF4'), noneBd: cssVar('--c-none-bd', '#EFD6B8'),
+      warn: cssVar('--warn', '#B4692C'), muted: cssVar('--muted', '#718077'),
+      ink: cssVar('--ink', '#20302A'), bg: cssVar('--bg', '#F5F7F2')
+    };
+    var arr = sortMembers(state.members, c, '');
+    var W = 720, pad = 24, cols = 5, gap = 10, cellH = 84;
+    var cellW = (W - pad * 2 - gap * (cols - 1)) / cols;
+    var rows = Math.max(1, Math.ceil(arr.length / cols));
+    var headH = 120, footH = 56;
+    var H = headH + rows * (cellH + gap) + footH;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var cv = document.createElement('canvas');
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    var ctx = cv.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = CP.bg;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = CP.ink;
+    ctx.font = '600 24px system-ui, "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.fillText('果子登记 · ' + prettyDay(state.day), pad, 42);
+    ctx.font = '14px system-ui, "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.fillStyle = CP.muted;
+    var line = state.day + '　已摸满 ' + c.full + '　没摸到 ' + c.none;
+    if(c.plantNeed) line += '　种果 ' + c.plantDone + '/' + c.plantNeed;
+    ctx.fillText(line, pad, 70);
+    ctx.fillText('底色区分完成度，卡片内文字标注摸果/种果状态', pad, 94);
+    arr.forEach(function(m, i){
+      var x = pad + (i % cols) * (cellW + gap);
+      var y = headH + Math.floor(i / cols) * (cellH + gap);
+      var combo = comboState(m, c);
+      var bg = '#FFFFFF', bd = '#E5EAE0';
+      if(combo.cls.indexOf('c-all-done') >= 0){ bg = CP.doneBg; bd = CP.doneBd; }
+      else if(combo.cls.indexOf('c-all-todo') >= 0){ bg = CP.todoBg; bd = CP.todoBd; }
+      else if(combo.cls.indexOf('c-none') >= 0){ bg = CP.noneBg; bd = CP.noneBd; }
+      ctx.fillStyle = bg; ctx.strokeStyle = bd; ctx.lineWidth = 1;
+      roundRect(ctx, x, y, cellW, cellH, 10);
+      ctx.fill(); ctx.stroke();
+      var r = c.map[m.id], p = c.plantMap[m.id];
+      ctx.fillStyle = CP.ink;
+      ctx.font = '600 15px system-ui, "PingFang SC", "Microsoft YaHei", sans-serif';
+      ctx.fillText(fitText(ctx, m.name, cellW - 20), x + 10, y + 24);
+      ctx.font = '12px system-ui, "PingFang SC", "Microsoft YaHei", sans-serif';
+      ctx.fillStyle = (r && r.status === 'full') ? CP.pick : CP.warn;
+      ctx.fillText(r && r.status === 'full' ? '摸果 已摸满' : '摸果 没摸到', x + 10, y + 46);
+      if(m.need_plant){
+        var done = p && p.status === 'done';
+        ctx.fillStyle = done ? CP.plantDone : CP.muted;
+        ctx.fillText(done ? '种果 已种果' : '种果 未种', x + 10, y + 66);
+      }
+    });
+    ctx.fillStyle = CP.muted;
+    ctx.font = '12px system-ui, "PingFang SC", "Microsoft YaHei", sans-serif';
+    ctx.fillText('生成时间 ' + new Date().toLocaleString('zh-CN', { hour12: false }) + '　共 ' + c.total + ' 人', pad, H - 20);
+    return cv.toDataURL('image/png');
+  }
+  function hideShot(){
+    var box = document.getElementById('shotBox');
+    if(box) box.innerHTML = '';
+  }
+  function showShot(){
+    var box = document.getElementById('shotBox');
+    if(!box) return;
+    try {
+      var url = buildShot();
+      box.innerHTML = '<div class="shothead"><span class="shotlabel">结果图（长按图片可保存）</span>' +
+        '<button class="shotclose" id="btnShotClose" type="button">关闭 ✕</button></div>' +
+        '<img class="shotimg" src="' + url + '" alt="登记结果">' +
+        '<div class="hint" style="margin-top:8px">长按图片保存到相册；电脑上会自动下载。看完点右上「关闭」收起。</div>';
+      var closeBtn = document.getElementById('btnShotClose');
+      if(closeBtn) closeBtn.onclick = hideShot;
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = '果子登记-' + state.day + '.png';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      toast('结果图已生成');
+    } catch(e){ toast('生成失败：' + e.message); }
+  }
+
+  function memberView(){
+    app.innerHTML =
+      '<div class="top"><div><h1>果子登记</h1><div class="sub" id="dayLabel"></div></div>' +
+      '<button class="btn" id="btnRefresh">刷新</button></div>' +
+      '<div class="card"><div class="stats" id="stats"></div><div class="bar"><div id="barFill"></div></div>' +
+      '<div class="plantstat" id="plantStat"></div></div>' +
+      '<div class="card"><button class="btn" id="btnShot">保存结果图</button>' +
+      '<span class="hint" style="margin-left:8px">生成一张当前登记结果的图片</span>' +
+      '<div id="shotBox"></div></div>' +
+      '<div class="card"><input class="search" id="search" type="text" placeholder="输入名字，快速找到自己">' +
+      '<div class="hint" id="myHint"></div></div>' +
+      '<div id="list" class="grid"></div>' +
+      '<div class="card"><h2>兑换码</h2><div id="codeList"></div>' +
+      '<div class="hint" style="margin-top:8px">点「复制」即可粘贴使用</div></div>' +
+      '<div class="note">没摸到是默认状态，不用额外登记。绿色大块＝已摸满，蓝色大块＝已种果，蓝色按钮＝种果了。底色：绿＝两项都完成，红＝两项待办，橙＝没摸到。没种果的排前面，完成的排最后；点自己卡片右下角「这是我的」，你的卡片会置顶到第一位。</div>';
+    document.getElementById('dayLabel').textContent = state.day + ' · ' + prettyDay(state.day) + ' · 找到自己的名字点一下';
+    document.getElementById('btnRefresh').onclick = function(){ refresh(); toast('已刷新'); };
+    document.getElementById('btnShot').onclick = showShot;
+    document.getElementById('search').oninput = renderMemberList;
+    document.getElementById('list').onclick = memberListAction;
+    document.getElementById('myHint').onclick = function(ev){
+      if(ev.target && ev.target.dataset && ev.target.dataset.clear){ clearMy(); renderMemberList(); }
+    };
+    document.getElementById('codeList').onclick = codeAction;
+    refresh();
+    setInterval(refresh, 15000);
+  }
+  function renderMemberList(){
+    var box = document.getElementById('list');
+    var hint = document.getElementById('myHint');
+    if(!box) return;
+    var kw = ((document.getElementById('search') || {}).value || '').trim().toLowerCase();
+    var myId = getMy();
+    var c = compute();
+    var arr = sortMembers(state.members, c, myId);
+    if(hint){
+      var myName = (state.members.filter(function(m){ return String(m.id) === String(myId); })[0] || {}).name || '';
+      hint.innerHTML = myId
+        ? '已记住你是「' + esc(myName) + '」，你的卡片已排在最前面。<button class="mini" data-clear="1" style="margin-left:6px;padding:3px 8px">不是我？</button>'
+        : '点自己卡片右下角的「这是我的」记住身份，之后它会排到最前面。';
+    }
+    var html = '';
+    arr.filter(function(m){
+      if(!kw) return true;
+      return m.name.toLowerCase().indexOf(kw) >= 0;
+    }).forEach(function(m){
+      var r = c.map[m.id];
+      var p = c.plantMap[m.id];
+      var mine = String(m.id) === myId;
+      var badge, actions;
+      if(r && r.status === 'full'){
+        badge = '<button class="mini tiny" data-undo="' + m.id + '" title="登记时间 ' + esc(timeStr(r.updated_at)) + '">撤销</button>';
+        actions = '<div class="doneflag">已摸满 ✓</div>';
+      } else {
+        badge = '<span class="badge warn">没摸到</span>';
+        actions = '<button class="btn go" data-full="' + m.id + '">摸满了</button>';
+      }
+      var combo = comboState(m, c);
+      var cls = (mine ? ' mine' : '') + combo.cls;
+      html += '<div class="mitem' + cls + '">' +
+        '<div class="mrow"><span class="mname">' + esc(m.name) + '</span></div>' +
+        '<div class="psec"><span class="plabel">摸果</span>' + badge + '</div>' +
+        '<div class="mactions">' + actions + '</div>';
+      if(m.need_plant){
+        var planted = p && p.status === 'done';
+        var pbadge = planted
+          ? '<button class="mini tiny" data-unplant="' + m.id + '" title="登记时间 ' + esc(timeStr(p.updated_at)) + '">撤销</button>'
+          : '<span class="badge gray">未种</span>';
+        var pactions = planted
+          ? '<div class="plantdone">已种果 ✓</div>'
+          : '<button class="btn plant" data-plant="' + m.id + '">种果了</button>';
+        html += '<div class="psec"><span class="plabel">种果</span>' + pbadge + '</div>' +
+                '<div class="mactions">' + pactions + '</div>';
+      }
+      var foot = '';
+      if(mine) foot = '<button class="pickme meclear" data-unpick="1">不是我</button>';
+      else if(!myId) foot = '<button class="pickme" data-pickme="' + m.id + '">这是我的</button>';
+      html += '<div class="mfoot">' + foot + '</div>' +
+        '</div>';
+    });
+    box.innerHTML = html || '<div class="card center hint">没找到，换个名字试试</div>';
+  }
+  async function memberListAction(ev){
+    var btn = ev.target.closest('button');
+    if(!btn) return;
+    var ds = btn.dataset;
+    if(ds.unpick){
+      clearMy();
+      renderMemberList();
+      toast('已取消身份标记');
+      return;
+    }
+    if(ds.pickme){
+      setMy(String(ds.pickme));
+      renderMemberList();
+      var pm = state.members.filter(function(x){ return String(x.id) === String(ds.pickme); })[0];
+      var mineEl = document.querySelector('#list .mitem.mine');
+      if(mineEl && mineEl.scrollIntoView) mineEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      toast('已记住：' + (pm ? pm.name : '') + '，你的卡片排最前');
+      return;
+    }
+    var id = Number(ds.full || ds.none || ds.undo || ds.plant || ds.unplant);
+    var m = state.members.filter(function(x){ return x.id === id; })[0];
+    if(!m) return;
+    btn.disabled = true;
+    try {
+      if(ds.plant || ds.unplant){
+        await setPlant(m, state.day, ds.plant ? 'done' : 'pending');
+        toast((isMine(m) ? '' : m.name + '：') + (ds.plant ? '已登记种果' : '已撤销种果'));
+      } else {
+        var st = ds.full ? 'full' : (ds.none ? 'none' : 'pending');
+        await setStatus(m, state.day, st);
+        toast((isMine(m) ? '' : m.name + '：') + (ds.undo ? '已撤销' : (st === 'full' ? '已登记摸满' : '已登记没摸到')));
+      }
+      await refresh();
+    } catch(e){ toast(e.message || '操作失败，请重试'); btn.disabled = false; }
+  }
+
+  function adminView(){
+    app.innerHTML =
+      '<div class="top"><div><h1>果子登记 · 管理台</h1><div class="sub">一条链接发群里，成员自己点名字登记</div></div>' +
+      '<button class="btn" id="btnRefresh">刷新</button></div>' +
+      '<div class="card"><h2>共享链接</h2><div class="share" id="shareText"></div>' +
+      '<button class="btn primary" id="btnCopyShare">复制共享链接发群里</button></div>' +
+      '<div class="card"><div class="row between"><div class="field"><label>查看日期</label>' +
+      '<input type="date" id="dayPick" value="' + state.day + '"></div></div>' +
+      '<div class="stats" id="stats"></div><div class="bar"><div id="barFill"></div></div>' +
+      '<div class="plantstat" id="plantStat"></div>' +
+      '<div class="pending" id="pendingBox"></div></div>' +
+      '<div class="card"><h2>添加成员</h2>' +
+      '<div class="row"><input type="text" id="newName" placeholder="名字">' +
+      '<button class="btn primary" id="btnAddOne">添加</button></div>' +
+      '<textarea id="bulk" rows="3" placeholder="批量：每行一个名字，也可以用逗号分隔"></textarea>' +
+      '<div style="margin-top:10px"><button class="btn" id="btnBulk">批量添加</button></div></div>' +
+      '<div class="card"><div class="row between"><h2 style="margin:0">成员名单</h2><span class="hint" id="countHint"></span></div>' +
+      '<input class="search" id="adminSearch" type="text" placeholder="搜索名字" style="margin-top:12px">' +
+      '<div class="toolbar"><button class="mini" id="btnSelAll">全选当前</button>' +
+      '<button class="mini" id="btnSelNone">清空选择</button>' +
+      '<span class="hint" id="selCount">已选 0 人</span>' +
+      '<button class="mini" id="btnBulkFull">批量标记摸满</button>' +
+      '<button class="mini" id="btnBulkPlantOn">批量开种果</button>' +
+      '<button class="mini" id="btnBulkPlantOff">批量关种果</button>' +
+      '<button class="mini" id="btnBulkDel">批量删除</button></div>' +
+      '<div id="adminList" class="grid"></div></div>' +
+      '<div class="card"><h2>兑换码</h2>' +
+      '<div class="row"><input type="text" id="newCode" placeholder="输入兑换码，可一次粘贴多行">' +
+      '<button class="btn primary" id="btnAddCode">添加</button></div>' +
+      '<div id="codeList" style="margin-top:12px"></div>' +
+      '<div class="hint" style="margin-top:8px">兑换码会显示在共享页，任何拿到链接的人都能看到并复制</div></div>' +
+      '<div class="card"><h2>数据清理</h2><div class="hint" id="cleanInfo"></div>' +
+      '<button class="mini" id="btnClean" style="margin-top:10px">立即清理历史记录</button></div>' +
+      '<div class="note">管理台链接只发给自己。「种果」开关控制共享页是否给该成员显示种果按钮，名单共用一套。删除成员会同时删掉他所有摸果和种果记录，不可恢复。</div>';
+    var cleanInfo = document.getElementById('cleanInfo');
+    if(cleanInfo){
+      cleanInfo.textContent = '摸果 / 种果记录只保留最近 ' + KEEP_DAYS + ' 天（含今天），更早的每天第一次打开页面时自动删除。' +
+        '最近一次清理：' + (lastClean() || '还没清理过') + '。名单和兑换码不受影响。';
+    }
+    var btnClean = document.getElementById('btnClean');
+    if(btnClean){
+      btnClean.onclick = async function(){
+        var cut = keepFrom();
+        if(!window.confirm('将删除 ' + cut + ' 之前的全部摸果和种果记录，不可恢复。继续？')) return;
+        btnClean.disabled = true;
+        try {
+          var r = await cleanupOld();
+          toast('已清理：摸果 ' + r.checkins + ' 条、种果 ' + r.plantings + ' 条');
+          adminView();
+        } catch(e){ toast(e.message || '清理失败'); btnClean.disabled = false; }
+      };
+    }
+    document.getElementById('shareText').textContent = shareUrl();
+    document.getElementById('btnCopyShare').onclick = async function(){
+      toast(await copy(shareUrl()) ? '共享链接已复制' : '复制失败，请长按上方链接手动复制');
+    };
+    document.getElementById('btnRefresh').onclick = function(){ refresh(); toast('已刷新'); };
+    document.getElementById('dayPick').onchange = function(){
+      state.day = this.value || today();
+      refresh();
+    };
+    document.getElementById('btnAddOne').onclick = addOne;
+    document.getElementById('btnBulk').onclick = addBulk;
+    document.getElementById('adminSearch').oninput = renderAdminList;
+    document.getElementById('adminList').onclick = adminListAction;
+    document.getElementById('adminList').onchange = adminListSelect;
+    document.getElementById('btnSelAll').onclick = selectAllVisible;
+    document.getElementById('btnSelNone').onclick = function(){ selected = {}; renderAdminList(); };
+    document.getElementById('btnBulkFull').onclick = bulkMarkFull;
+    document.getElementById('btnBulkPlantOn').onclick = function(){ bulkPlant(true); };
+    document.getElementById('btnBulkPlantOff').onclick = function(){ bulkPlant(false); };
+    document.getElementById('btnBulkDel').onclick = bulkDelete;
+    document.getElementById('btnAddCode').onclick = addCodes;
+    document.getElementById('codeList').onclick = codeAction;
+    refresh();
+    setInterval(refresh, 15000);
+  }
+  function visibleMembers(){
+    var kw = ((document.getElementById('adminSearch') || {}).value || '').trim().toLowerCase();
+    return state.members.filter(function(m){
+      if(!kw) return true;
+      return m.name.toLowerCase().indexOf(kw) >= 0;
+    });
+  }
+  function chosenIds(){
+    return Object.keys(selected).filter(function(k){ return selected[k]; }).map(Number);
+  }
+  function updateSelCount(){
+    var sc = document.getElementById('selCount');
+    if(sc) sc.textContent = '已选 ' + chosenIds().length + ' 人';
+  }
+  function renderAdminList(){
+    var box = document.getElementById('adminList');
+    if(!box) return;
+    var c = compute();
+    var html = '';
+    sortMembers(visibleMembers(), c, '').forEach(function(m){
+      var r = c.map[m.id];
+      var p = c.plantMap[m.id];
+      var sel = !!selected[m.id];
+      var badge = r && r.status === 'full' ? '<span class="badge ok" title="' + esc(timeStr(r.updated_at)) + '">已摸满</span>'
+                : '<span class="badge warn">没摸到</span>';
+      var pstate = !m.need_plant ? '不显示'
+                 : (p && p.status === 'done') ? '已种' : '未种';
+      var combo = comboState(m, c);
+      html += '<div class="arow' + (sel ? ' sel' : '') + combo.cls + '">' +
+        '<div class="mrow"><label class="chk"><input type="checkbox" data-sel="' + m.id + '"' + (sel ? ' checked' : '') + '>选</label>' + badge + '</div>' +
+        '<div class="mname">' + esc(m.name) + '</div>' +
+        '<div class="psec"><span class="plabel">种果 ' + pstate + '</span>' +
+        '<button class="mini" data-plant-toggle="' + m.id + '" style="padding:4px 8px">' + (m.need_plant ? '关闭' : '开启') + '</button></div>' +
+        '<div class="mactions"><button class="mini" data-edit="' + m.id + '">编辑</button>' +
+        '<button class="mini" data-del="' + m.id + '">删除</button></div></div>';
+    });
+    box.innerHTML = html || '<div class="hint" style="padding:14px 0">没有成员，先在上面添加。</div>';
+    updateSelCount();
+  }
+  function adminListSelect(ev){
+    var t = ev.target;
+    if(!t || !t.dataset || !t.dataset.sel) return;
+    selected[t.dataset.sel] = !!t.checked;
+    var row = t.closest('.arow');
+    if(row) row.classList.toggle('sel', !!t.checked);
+    updateSelCount();
+  }
+  function selectAllVisible(){
+    visibleMembers().forEach(function(m){ selected[m.id] = true; });
+    renderAdminList();
+  }
+  async function bulkMarkFull(){
+    var ids = chosenIds();
+    if(!ids.length){ toast('先勾选成员'); return; }
+    if(!window.confirm('把选中的 ' + ids.length + ' 人全部标记为「摸满了」？')) return;
+    var btn = document.getElementById('btnBulkFull');
+    btn.disabled = true;
+    try {
+      for(var i = 0; i < ids.length; i += 6){
+        await Promise.all(ids.slice(i, i + 6).map(function(id){
+          var m = state.members.filter(function(x){ return x.id === id; })[0];
+          return m ? setStatus(m, state.day, 'full') : Promise.resolve();
+        }));
+      }
+      toast('已标记 ' + ids.length + ' 人');
+      refresh();
+    } catch(e){ toast(e.message || '操作失败'); }
+    finally { btn.disabled = false; }
+  }
+  async function bulkPlant(on){
+    var ids = chosenIds();
+    if(!ids.length){ toast('先勾选成员'); return; }
+    var btn = document.getElementById(on ? 'btnBulkPlantOn' : 'btnBulkPlantOff');
+    btn.disabled = true;
+    try {
+      for(var i = 0; i < ids.length; i += 6){
+        var res = await Promise.all(ids.slice(i, i + 6).map(function(id){
+          return q(db.from('members').update({ need_plant: on }).eq('id', id).select());
+        }));
+        if(res.some(function(r){ return !r || !r.length; })) throw new Error('部分成员未生效，请刷新核对');
+      }
+      toast('已' + (on ? '开启' : '关闭') + ' ' + ids.length + ' 人的种果');
+      refresh();
+    } catch(e){ toast(e.message || '操作失败'); }
+    finally { btn.disabled = false; }
+  }
+  async function bulkDelete(){
+    var ids = chosenIds();
+    if(!ids.length){ toast('先勾选成员'); return; }
+    if(!window.confirm('确定删除选中的 ' + ids.length + ' 人？他们的登记记录也会一起删除，不可恢复。')) return;
+    var btn = document.getElementById('btnBulkDel');
+    btn.disabled = true;
+    try {
+      for(var i = 0; i < ids.length; i += 6){
+        var res = await Promise.all(ids.slice(i, i + 6).map(function(id){
+          return q(db.from('members').delete().eq('id', id).select());
+        }));
+        if(res.some(function(r){ return !r || !r.length; })) throw new Error('部分成员删除失败，请刷新核对');
+      }
+      if(getMy() && ids.indexOf(Number(getMy())) >= 0) clearMy();
+      selected = {};
+      toast('已删除 ' + ids.length + ' 人');
+      refresh();
+    } catch(e){ toast(e.message || '删除失败，请刷新核对'); }
+    finally { btn.disabled = false; }
+  }
+  async function addOne(){
+    var nameEl = document.getElementById('newName');
+    var name = nameEl.value.trim();
+    if(!name){ toast('先填名字'); return; }
+    if(state.members.some(function(m){ return m.name === name; })){ toast('这个名字已经有了'); return; }
+    var btn = document.getElementById('btnAddOne');
+    btn.disabled = true;
+    try {
+      var added = await q(db.from('members').insert({ name: name, token: newToken(), active: true }).select());
+      if(!added || !added.length) throw new Error('添加未生效');
+      nameEl.value = '';
+      toast('已添加 ' + name);
+      refresh();
+    } catch(e){ toast(e.message || '添加失败'); }
+    finally { btn.disabled = false; }
+  }
+  async function addBulk(){
+    var box = document.getElementById('bulk');
+    var names = box.value.split(/[\n,，、;；\t]+/).map(function(s){ return s.trim(); }).filter(Boolean);
+    if(!names.length){ toast('先填名单，每行一个名字'); return; }
+    var byName = {};
+    state.members.forEach(function(m){ byName[m.name] = true; });
+    var rows = [], fresh = {};
+    names.forEach(function(n){
+      if(!byName[n] && !fresh[n]){
+        fresh[n] = true;
+        rows.push({ name: n, token: newToken(), active: true });
+      }
+    });
+    if(!rows.length){ toast('这些名字都已经有了'); return; }
+    var btn = document.getElementById('btnBulk');
+    btn.disabled = true;
+    try {
+      var added = await q(db.from('members').insert(rows).select());
+      if(!added || !added.length) throw new Error('添加未生效');
+      box.value = '';
+      toast('已添加 ' + rows.length + ' 人');
+      refresh();
+    } catch(e){ toast(e.message || '添加失败'); }
+    finally { btn.disabled = false; }
+  }
+  async function adminListAction(ev){
+    var btn = ev.target.closest('button');
+    if(!btn) return;
+    var ds = btn.dataset;
+    var id = Number(ds.edit || ds.del || ds.plantToggle);
+    var m = state.members.filter(function(x){ return x.id === id; })[0];
+    if(!m) return;
+    try {
+      if(ds.plantToggle){
+        var t = await q(db.from('members').update({ need_plant: !m.need_plant }).eq('id', id).select());
+        if(!t || !t.length) throw new Error('修改未生效');
+        toast(m.need_plant ? '已关闭 ' + m.name + ' 的种果' : '已开启 ' + m.name + ' 的种果');
+        refresh();
+        return;
+      }
+      if(ds.edit){
+        var v = window.prompt('修改名字', m.name);
+        if(v === null) return;
+        var name = v.trim();
+        if(!name){ toast('名字不能为空'); return; }
+        var up = await q(db.from('members').update({ name: name }).eq('id', id).select());
+        if(!up || !up.length) throw new Error('修改未生效');
+        toast('已保存');
+        refresh();
+        return;
+      }
+      if(ds.del){
+        if(!window.confirm('确定删除「' + m.name + '」？他的所有登记记录也会一起删除，不可恢复。')) return;
+        var d = await q(db.from('members').delete().eq('id', id).select());
+        if(!d || !d.length) throw new Error('删除未生效');
+        if(getMy() === String(id)) clearMy();
+        delete selected[id];
+        toast('已删除 ' + m.name);
+        refresh();
+      }
+    } catch(e){ toast(e.message || '操作失败，请重试'); }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
