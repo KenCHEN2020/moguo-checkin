@@ -7,11 +7,13 @@
  *   db.from('members').update({name:'x'}).eq('id',1).select()
  *   db.from('members').delete().eq('id',1).select()
  * 返回 { data } 或 { error: { message } }，与 page 里的 q() 兼容。
+ * 读请求（GET）失败会自动重试，写请求不重试以免重复登记。
  */
 (function(){
   var URL_BASE = '';
   var KEY = '';
-  var TIMEOUT = 15000;
+  var TIMEOUT = 20000;   // 国内访问境外 Supabase 常需十几秒，超时放宽到 20 秒
+  var RETRY = 2;         // 读请求最多重试 2 次（共 3 次尝试）
 
   function toFilter(f){
     var v = String(f[1]);
@@ -23,7 +25,8 @@
     }
   }
 
-  function request(method, path, query, body, prefer){
+  function request(method, path, query, body, prefer, tries){
+    var left = (tries == null) ? RETRY : tries;
     var url = URL_BASE.replace(/\/$/, '') + '/rest/v1/' + path + (query && query.length ? '?' + query.join('&') : '');
     var headers = {
       'apikey': KEY,
@@ -45,13 +48,22 @@
         try { json = text ? JSON.parse(text) : null; } catch(e){}
         if(!res.ok){
           var msg = (json && (json.message || json.hint || json.details)) || ('请求失败 ' + res.status);
+          // 读请求遇到服务端临时错误（5xx）也重试；写请求不重试
+          if(method === 'GET' && res.status >= 500 && left > 0){
+            return request(method, path, query, body, prefer, left - 1);
+          }
           return { error: { message: msg } };
         }
         return { data: json };
       });
     }, function(e){
       if(timer) clearTimeout(timer);
-      return { error: { message: e && e.name === 'AbortError' ? '请求超时，请检查网络后重试' : '网络连接失败，请重试' } };
+      var msg = e && e.name === 'AbortError' ? '请求超时，请检查网络后重试' : '网络连接失败，请重试';
+      // 只重试读请求；写请求失败直接报错，避免重复登记
+      if(method === 'GET' && left > 0){
+        return request(method, path, query, body, prefer, left - 1);
+      }
+      return { error: { message: msg } };
     });
   }
 
