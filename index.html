@@ -106,9 +106,8 @@ input:focus,textarea:focus{border-color:var(--brand)}
   backend: 'supabase',              // 'workbuddy' 用自家云服务；'supabase' 用 Supabase 免费后端
   supabaseUrl: 'https://cfzjruwccstqvrwhszse.supabase.co',
   supabaseKey: 'sb_publishable_OXrxM7iPK9SRBhZ59Vlcwg_Nq6lArlk',
-  // 备用通道（国内中继）：直连不通时自动切换。部署好中继后把地址填进来即可，例如
-  //   apiBases: ['https://xxx.ap-shanghai.tcb-api.cn/moguo']
-  apiBases: [],
+  // 备用通道（国内中继）：直连不通时自动切换。国内通道优先，直连兜底。
+  apiBases: ['https://moguo-d6gupz0see42f76c8-1301216290.ap-shanghai.app.tcloudbase.com/moguo'],
   endpoint:'https://fruit-checkin-24663.app.workbuddy.host',
   oauthRelayBaseUrl:'https://www.workbuddy.cn/v2/as/genie-baas/oauth',
   publishableKey:'wbpk_FhVhWR0wyX8IHi5ekShOMe_3liyZXB3V2g5Nj5x767hHOP5FLW344Lg',
