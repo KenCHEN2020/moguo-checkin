@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<html lang="zh-CN" data-page-node-id="e7f4nBgxVJ6Q5OOfieDVIE">
+<head data-page-node-id="uPmQGNCHpRxF5D6YONFfJt">
+<meta charset="utf-8" data-page-node-id="3UyknnUcaH5ndpVrZU2gKO">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" data-page-node-id="ULY9IKN6yGBT1wD59ua3jw">
 <title>果子登记</title>
 <style>
 :root{
@@ -100,8 +100,8 @@ input:focus,textarea:focus{border-color:var(--brand)}
 .erricon{width:44px;height:44px;border-radius:50%;background:var(--gray-bg);color:var(--muted);font-size:22px;line-height:44px;margin:0 auto 12px}
 </style>
 </head>
-<body>
-<div id="app" class="wrap"></div>
+<body data-page-node-id="cIg2ikXU6eJsPYymKDk2F3">
+<div id="app" class="wrap" data-page-node-id="c6rkYSCCjddQb3JxnsAYI9"></div>
 <script>window.APP_CONFIG = {
   backend: 'supabase',              // 'workbuddy' 用自家云服务；'supabase' 用 Supabase 免费后端
   supabaseUrl: 'https://cfzjruwccstqvrwhszse.supabase.co',
@@ -257,18 +257,45 @@ input:focus,textarea:focus{border-color:var(--brand)}
     autoCleanup();
   }
 
+  var CACHE_KEY = 'moguo_last_data';
   async function loadData(day){
-    var res = await Promise.all([
+    // 4 个请求各自兜底：单个失败不拖垮全部，尽量用缓存补齐。
+    // 名单/兑换码跨天不变，任意日期的缓存都能用；登记记录只认同一天。
+    var cache = null;
+    try { cache = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch(e){}
+    var sameDay = !!(cache && cache.day === day);
+    var jobs = [
       q(db.from('members').select('*').order('id', { ascending: true })),
       q(db.from('checkins').select('*').eq('day', day)),
       q(db.from('plantings').select('*').eq('day', day)),
       q(db.from('codes').select('*').order('id', { ascending: false }))
-    ]);
-    state.members = res[0] || [];
-    state.rows = res[1] || [];
-    state.plants = res[2] || [];
-    state.codes = res[3] || [];
+    ];
+    var fallbacks = [
+      cache ? cache.members : null,
+      sameDay ? cache.rows : null,
+      sameDay ? cache.plants : null,
+      cache ? cache.codes : null
+    ];
+    var okCount = 0;
+    var results = await Promise.all(jobs.map(function(p, i){
+      return p.then(function(d){ okCount++; return d; }, function(){ return fallbacks[i]; });
+    }));
+    state.members = results[0] || fallbacks[0] || [];
+    state.rows    = results[1] || fallbacks[1] || [];
+    state.plants  = results[2] || fallbacks[2] || [];
+    state.codes   = results[3] || fallbacks[3] || [];
     state.day = day;
+    if(okCount === jobs.length){
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          day: day, members: state.members, rows: state.rows, plants: state.plants, codes: state.codes
+        }));
+      } catch(e){}
+    }
+    // 全部失败且连名单都没有，才抛错让上层提示
+    if(okCount === 0 && !state.members.length){
+      throw new Error('网络连接失败，请重试');
+    }
   }
   function compute(){
     var map = {}, plantMap = {};
