@@ -106,6 +106,9 @@ input:focus,textarea:focus{border-color:var(--brand)}
   backend: 'supabase',              // 'workbuddy' 用自家云服务；'supabase' 用 Supabase 免费后端
   supabaseUrl: 'https://cfzjruwccstqvrwhszse.supabase.co',
   supabaseKey: 'sb_publishable_OXrxM7iPK9SRBhZ59Vlcwg_Nq6lArlk',
+  // 备用通道（国内中继）：直连不通时自动切换。部署好中继后把地址填进来即可，例如
+  //   apiBases: ['https://xxx.ap-shanghai.tcb-api.cn/moguo']
+  apiBases: [],
   endpoint:'https://fruit-checkin-24663.app.workbuddy.host',
   oauthRelayBaseUrl:'https://www.workbuddy.cn/v2/as/genie-baas/oauth',
   publishableKey:'wbpk_FhVhWR0wyX8IHi5ekShOMe_3liyZXB3V2g5Nj5x767hHOP5FLW344Lg',
@@ -219,7 +222,11 @@ input:focus,textarea:focus{border-color:var(--brand)}
       if(!window.SupabaseDB || !CFG.supabaseUrl || !CFG.supabaseKey){
         app.innerHTML = errCard('数据库配置缺失，请检查 supabaseUrl / supabaseKey'); return;
       }
-      db = SupabaseDB.create(CFG.supabaseUrl, CFG.supabaseKey).database;
+      // 多通道：CFG.apiBases 里可加国内中继地址，某个通道不通时自动切换
+      var client = SupabaseDB.create(CFG.supabaseUrl, CFG.supabaseKey, CFG.apiBases || []);
+      db = client.database;
+      db.diagnose = client.diagnose;
+      db.channels = client.channels;
       return route();
     }
     if(!window.WorkBuddyCloud || !CFG.endpoint || !CFG.publishableKey){
@@ -579,6 +586,8 @@ input:focus,textarea:focus{border-color:var(--brand)}
       '<div id="list" class="grid"></div>' +
       '<div class="card"><h2>兑换码</h2><div id="codeList"></div>' +
       '<div class="hint" style="margin-top:8px">点「复制」即可粘贴使用</div></div>' +
+      '<div class="card"><a class="mini" href="./diagnose.html" style="display:inline-block;text-decoration:none">打不开？点这里自检网络</a>' +
+      '<div class="hint" style="margin-top:8px">检测这台设备能否访问登记数据，全程只读、不改数据。</div></div>' +
       '<div class="note">没摸到是默认状态，不用额外登记。绿色大块＝已摸满，蓝色大块＝已种果，蓝色按钮＝种果了。底色：绿＝两项都完成，红＝两项待办，橙＝没摸到。没种果的排前面，完成的排最后；点自己卡片右下角「这是我的」，你的卡片会置顶到第一位。</div>';
     document.getElementById('dayLabel').textContent = state.day + ' · ' + prettyDay(state.day) + ' · 找到自己的名字点一下';
     document.getElementById('btnRefresh').onclick = function(){ refresh(); toast('已刷新'); };
@@ -716,6 +725,10 @@ input:focus,textarea:focus{border-color:var(--brand)}
       '<div class="hint" style="margin-top:8px">兑换码会显示在共享页，任何拿到链接的人都能看到并复制</div></div>' +
       '<div class="card"><h2>数据清理</h2><div class="hint" id="cleanInfo"></div>' +
       '<button class="mini" id="btnClean" style="margin-top:10px">立即清理历史记录</button></div>' +
+      '<div class="card"><h2>网络诊断</h2>' +
+      '<div class="hint">检查这台设备到各个数据通道的连通情况。换设备后如果打不开，先点这里看是哪个通道不通。</div>' +
+      '<div id="diagBox" style="margin-top:10px"></div>' +
+      '<button class="mini" id="btnDiag" style="margin-top:10px">开始检测</button></div>' +
       '<div class="note">管理台链接只发给自己。「种果」开关控制共享页是否给该成员显示种果按钮，名单共用一套。删除成员会同时删掉他所有摸果和种果记录，不可恢复。</div>';
     var cleanInfo = document.getElementById('cleanInfo');
     if(cleanInfo){
@@ -733,6 +746,35 @@ input:focus,textarea:focus{border-color:var(--brand)}
           toast('已清理：摸果 ' + r.checkins + ' 条、种果 ' + r.plantings + ' 条');
           adminView();
         } catch(e){ toast(e.message || '清理失败'); btnClean.disabled = false; }
+      };
+    }
+    var btnDiag = document.getElementById('btnDiag');
+    if(btnDiag){
+      btnDiag.onclick = async function(){
+        var box = document.getElementById('diagBox');
+        btnDiag.disabled = true;
+        box.innerHTML = '<div class="hint">检测中…</div>';
+        try {
+          if(!window.SupabaseDB || !db || !db.diagnose) throw new Error('诊断功能不可用');
+          var res = await db.diagnose();
+          var html = '';
+          res.forEach(function(r){
+            var cls = r.ok ? 'ok' : 'warn';
+            html += '<div style="padding:6px 0;border-bottom:1px solid var(--line);font-size:13px">' +
+              '<span class="badge ' + cls + '">' + (r.ok ? '可用' : '不通') + '</span> ' +
+              '<b>' + esc(r.base) + '</b>' +
+              '<span style="color:var(--muted)"> · ' + (r.mode === 'simple' ? '国内通道' : '直连') + ' · ' + r.ms + 'ms' +
+              (r.error ? ' · ' + esc(r.error) : '') + '</span></div>';
+          });
+          var okCount = res.filter(function(r){ return r.ok; }).length;
+          box.innerHTML = html + '<div class="hint" style="margin-top:8px">' +
+            (okCount ? ('有 ' + okCount + ' 个通道可用，页面会自动使用可用通道。')
+                     : '所有通道都不通。说明这台设备所在网络无法访问数据库，请换微信/系统浏览器，或联系管理员。') +
+            '</div>';
+        } catch(e){
+          box.innerHTML = '<div class="hint">检测失败：' + esc(e.message || '未知错误') + '</div>';
+        }
+        btnDiag.disabled = false;
       };
     }
     document.getElementById('shareText').textContent = shareUrl();
