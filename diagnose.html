@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>果子登记 · 网络诊断</title>
+<style>
+  body{font-family:-apple-system,"PingFang SC",system-ui,sans-serif;background:#f6f7f9;margin:0;padding:14px;color:#1c1e21;font-size:14px}
+  h1{font-size:18px;margin:0 0 6px}
+  .sub{font-size:13px;color:#666;margin:0 0 14px;line-height:1.6}
+  .card{background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  .t{font-weight:600;margin-bottom:6px;font-size:14px}
+  .r{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;word-break:break-all;color:#444}
+  .ok{color:#0a7c2f}.bad{color:#b3261e}.mid{color:#a06000}
+  .hint{background:#fff8e6;border:1px solid #f0d9a0;padding:10px;border-radius:8px;font-size:12.5px;line-height:1.65;margin-bottom:14px}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;margin-right:6px}
+  .pill.ok{background:#E3F5E9;color:#0a7c2f}
+  .pill.bad{background:#FCEBEB;color:#b3261e}
+</style>
+</head>
+<body>
+<h1>果子登记 · 网络诊断</h1>
+<p class="sub">检测这台设备能否正常访问登记数据。全程只读，不会修改任何数据。</p>
+<div class="hint">如果打不开登记页面，请先在同一个浏览器里打开本页，把结果截图发给管理员。</div>
+<div id="out"></div>
+<script>
+var U='https://cfzjruwccstqvrwhszse.supabase.co';
+var K='sb_publishable_OXrxM7iPK9SRBhZ59Vlcwg_Nq6lArlk';
+var QK='apikey='+encodeURIComponent(K);
+var out=document.getElementById('out');
+function card(t){var d=document.createElement('div');d.className='card';d.innerHTML='<div class="t">'+t+'</div><div class="r">运行中…</div>';out.appendChild(d);return d.querySelector('.r');}
+function set(el,t,c){el.textContent=t;el.className='r '+(c||'');}
+function now(){return Date.now();}
+
+async function run(n,f){var el=card(n);try{await f(el);}catch(e){set(el,'异常: '+(e&&e.message||e),'bad');}}
+
+// 1. 基础连通（简单请求，不触发 CORS 预检）
+run('1. 数据库连通性（简单请求）', async function(el){
+  var s=now();
+  try{
+    var r=await fetch(U+'/rest/v1/members?select=id&limit=1&'+QK, {method:'GET',mode:'cors',credentials:'omit'});
+    var t=await r.text();
+    set(el,'HTTP '+r.status+'  耗时 '+((Date.now()-s)/1000).toFixed(2)+'s\n'+t.slice(0,120),
+        r.ok?'ok':'bad');
+  }catch(e){
+    set(el,'失败: '+(e&&e.message||e)+'  耗时 '+((Date.now()-s)/1000).toFixed(2)+'s\n\n'+
+      '>>> 这台设备所在网络无法直连数据库。', 'bad');
+  }
+});
+
+// 2. 带自定义头的请求（会触发 CORS 预检）
+run('2. 带鉴权头的请求（会触发 CORS 预检）', async function(el){
+  var s=now();
+  try{
+    var r=await fetch(U+'/rest/v1/members?select=id&limit=1', {method:'GET',mode:'cors',credentials:'omit',headers:{'apikey':K,'Authorization':'Bearer '+K}});
+    var t=await r.text();
+    set(el,'HTTP '+r.status+'  耗时 '+((Date.now()-s)/1000).toFixed(2)+'s\n'+t.slice(0,120), r.ok?'ok':'bad');
+  }catch(e){
+    set(el,'失败: '+(e&&e.message||e)+'  耗时 '+((Date.now()-s)/1000).toFixed(2)+'s\n\n'+
+      '>>> 预检被阻断。页面已改用「简单请求」方式，只要第 1 项通过就能用。', 'bad');
+  }
+});
+
+// 3. 重复请求，测连接复用后的速度
+run('3. 连接复用后的速度', async function(el){
+  var s='';
+  for(var i=1;i<=3;i++){
+    var t0=now();
+    try{
+      var r=await fetch(U+'/rest/v1/members?select=id&limit=1&'+QK+'&_='+Date.now(), {method:'GET',mode:'cors',credentials:'omit'});
+      await r.text();
+      s+='第'+i+'次: '+((Date.now()-t0)/1000).toFixed(2)+'s\n';
+    }catch(e){ s+='第'+i+'次失败: '+(e&&e.message||e)+'\n'; }
+  }
+  set(el,s+'（首次慢说明跨境链路慢，后续快说明连接已复用）','mid');
+});
+
+// 4. DNS 解析
+run('4. 域名解析', async function(el){
+  try{
+    var r=await fetch('https://223.5.5.5/resolve?name=cfzjruwccstqvrwhszse.supabase.co&type=A',{method:'GET',mode:'cors'});
+    var j=await r.json();
+    var a=(j.Answer||[]).map(function(x){return x.data;});
+    set(el,'A 记录: '+(a.join(', ')||'无')+'\n'+(a.length?'解析正常':'解析失败'), a.length?'ok':'bad');
+  }catch(e){
+    set(el,'DNS 查询接口不可用（不影响判定）','mid');
+  }
+});
+
+// 5. 环境信息
+run('5. 运行环境', async function(el){
+  set(el,'UA: '+navigator.userAgent+'\n在线状态: '+(navigator.onLine?'在线':'离线')+'\n页面来源: '+location.origin+
+    (navigator.onLine?'':'\n\n>>> 设备显示离线，请检查 WiFi/流量连接。'), 'mid');
+});
+
+// 6. 总评
+run('6. 总评', async function(el){
+  var s=now();
+  try{
+    var r=await fetch(U+'/rest/v1/members?select=id&limit=1&'+QK,{method:'GET',mode:'cors',credentials:'omit'});
+    await r.text();
+    var okk=r.ok;
+    set(el,(okk?'可用  ':'不可用  ')+'数据库直连 HTTP '+r.status+'  总耗时 '+((Date.now()-s)/1000).toFixed(2)+'s\n'+
+      (okk?'网络正常。如果登记页面仍打不开，可能是浏览器扩展或缓存问题，请换微信/系统浏览器试试。'
+          :'这台网络无法访问数据库。请换网络（WiFi/流量对调）或换浏览器；仍不行请联系管理员部署国内通道。'),
+      okk?'ok':'bad');
+  }catch(e){
+    set(el,'不可用  数据库直连失败: '+(e&&e.message||e)+
+      '\n\n这台网络无法访问数据库。请换网络或浏览器；仍不行请联系管理员部署国内通道。','bad');
+  }
+});
+</script>
+</body>
+</html>
