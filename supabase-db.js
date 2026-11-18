@@ -5,8 +5,9 @@
  *   实测部分国内网络到 supabase.co 背后的 Cloudflare IP 连接会被重置或极慢
  *   （同一台电脑上首次握手要 12 秒，连接复用后只要 0.14 秒；个别设备直接失败）。
  *   表现就是页面能打开、但数据一直转圈，最后报「读取失败：网络连接失败，请重试」。
- *   这里允许配置多个 API 入口（国内中继 + 直连兜底），
- *   某个通道连不上时立刻换下一个，并把「上次成功」的通道记在本地，下次优先使用。
+ *   这里允许配置多个 API 入口（Supabase 直连优先 + 国内中继兜底），
+ *   优先走直连以减少中继（腾讯云）消耗；直连连不上时立刻换中继，保证个别设备仍能登记。
+ *   并把「上次成功」的通道记在本地，下次优先使用。
  *
  * 两种请求模式：
  *   json   —— 直连 PostgREST：带 apikey/Authorization 头，浏览器会先发 CORS 预检。
@@ -149,7 +150,11 @@
   }
 
   function markOk(idx){
-    try { localStorage.setItem(LAST_OK_KEY, String(idx)); } catch(e){}
+    // 记 URL 不记索引：通道顺序调整后，旧索引会指向错误通道
+    try {
+      var ch = CHANNELS[idx];
+      if(ch) localStorage.setItem(LAST_OK_KEY, hostOf(ch.url));
+    } catch(e){}
   }
 
   function Builder(table){
@@ -309,16 +314,23 @@
           returnsRows: x.returnsRows === undefined ? (x.mode === 'simple') : !!x.returnsRows
         });
       });
-      // 备用通道（国内中继）优先，直连作为兜底：
-      // 国内通道更稳定，且直连在跨境网络差时要等十几秒才失败
-      var list = extraList.slice();
+      // Supabase 直连优先，国内中继（腾讯云）仅作兜底：尽量少走中继。
+      // 直连在跨境网络差时会失败，失败后自动切到中继，保证个别设备仍可登记。
+      var list = [];
       if(url) list.push({ url: url, mode: 'json', returnsRows: true });
+      list = list.concat(extraList);
       CHANNELS = list;
-      // 上次成功的通道排最前
+      // 上次成功的通道排最前（存的是 host，兼容旧版的数字索引）
       try {
         var last = localStorage.getItem(LAST_OK_KEY);
-        if(last != null && list[last]){
-          var t = list[last]; list.splice(last, 1); list.unshift(t);
+        var lastIdx = -1;
+        for(var i = 0; i < list.length; i++){
+          if(hostOf(list[i].url) === last){ lastIdx = i; break; }
+        }
+        // 兼容旧版存的纯数字索引
+        if(lastIdx < 0 && /^\d+$/.test(last || '') && list[Number(last)]) lastIdx = Number(last);
+        if(lastIdx > 0){
+          var t = list[lastIdx]; list.splice(lastIdx, 1); list.unshift(t);
         }
       } catch(e){}
       return {
